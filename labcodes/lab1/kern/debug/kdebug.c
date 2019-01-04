@@ -290,6 +290,22 @@ read_eip(void) {
  * */
 void
 print_stackframe(void) {
+    uint32_t *ebp = 0;
+    uint32_t esp = 0;
+
+    ebp = (uint32_t *)read_ebp();
+    esp = read_eip();
+
+    while (ebp)
+    {
+        cprintf("ebp:0x%08x eip:0x%08x args:", (uint32_t)ebp, esp);
+        cprintf("0x%08x 0x%08x 0x%08x 0x%08x\n", ebp[2], ebp[3], ebp[4], ebp[5]);
+        
+        print_debuginfo(esp - 1);
+
+        esp = ebp[1];
+        ebp = (uint32_t *)*ebp;
+    }
      /* LAB1 YOUR CODE : STEP 1 */
      /* (1) call read_ebp() to get the value of ebp. the type is (uint32_t);
       * (2) call read_eip() to get the value of eip. the type is (uint32_t);
