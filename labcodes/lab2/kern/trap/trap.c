@@ -34,6 +34,17 @@ static struct pseudodesc idt_pd = {
 /* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
 void
 idt_init(void) {
+    extern uintptr_t __vectors[];
+    uint32_t pos;
+
+    /* along: how to set istrap and dpl? */
+    for (pos = 0; pos < 256; pos++) {
+        SETGATE(idt[pos], 0, GD_KTEXT, __vectors[pos], DPL_KERNEL);
+    }
+        
+    SETGATE(idt[128], 1, GD_KTEXT, __vectors[128], DPL_USER);
+
+    lidt(&idt_pd);
      /* LAB1 YOUR CODE : STEP 2 */
      /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
       *     All ISR's entry addrs are stored in __vectors. where is uintptr_t __vectors[] ?
@@ -134,6 +145,8 @@ print_regs(struct pushregs *regs) {
     cprintf("  eax  0x%08x\n", regs->reg_eax);
 }
 
+extern volatile size_t ticks;
+
 /* trap_dispatch - dispatch based on what type of trap occurred */
 static void
 trap_dispatch(struct trapframe *tf) {
@@ -141,6 +154,10 @@ trap_dispatch(struct trapframe *tf) {
 
     switch (tf->tf_trapno) {
     case IRQ_OFFSET + IRQ_TIMER:
+        if (((++ticks) % TICK_NUM) == 0) {
+            print_ticks();
+            ticks = 0;
+        }
         /* LAB1 YOUR CODE : STEP 3 */
         /* handle the timer interrupt */
         /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
