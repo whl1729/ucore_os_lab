@@ -326,6 +326,24 @@ pmm_init(void) {
 // return vaule: the kernel virtual address of this pte
 pte_t *
 get_pte(pde_t *pgdir, uintptr_t la, bool create) {
+    pde_t *pdep = pgdir + PDX(la);
+    if (*pdep & PTE_P) {
+        pte_t *ptep = (pte_t *)KADDR(*pdep & ~0x0fff) + PTX(la);
+        return ptep;
+    }
+
+    struct Page *page;
+    if (!create || ((page = alloc_page()) == NULL)) {
+        return NULL;
+    }
+
+    set_page_ref(page, 1);
+    uintptr_t pa = page2pa(page) & ~0x0fff;
+    memset((void *)KADDR(pa), 0, PGSIZE);
+    *pdep = pa | PTE_P | PTE_W | PTE_U;
+    pte_t *ptep = (pte_t *)KADDR(pa) + PTX(la);
+
+    return ptep;
     /* LAB2 EXERCISE 2: YOUR CODE
      *
      * If you need to visit a physical address, please use KADDR()
@@ -379,6 +397,14 @@ get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
 //note: PT is changed, so the TLB need to be invalidate 
 static inline void
 page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
+    if (*ptep & PTE_P) {
+        struct Page *page = pa2page(*ptep & ~0x0fff);
+        if (page_ref_dec(page) == 0) {
+            free_page(page);
+        }
+        *ptep = 0;
+        tlb_invalidate(pgdir, la);
+    }
     /* LAB2 EXERCISE 3: YOUR CODE
      *
      * Please check if ptep is valid, and tlb must be manually updated if mapping is updated
@@ -396,7 +422,7 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
      *   PTE_P           0x001                   // page table/directory entry flags bit : Present
      */
 #if 0
-    if (0) {                      //(1) check if this page table entry is present
+    if (0) {                      //(1) check if page directory is present
         struct Page *page = NULL; //(2) find corresponding page to pte
                                   //(3) decrease page reference
                                   //(4) and free this page when page reference reachs 0
