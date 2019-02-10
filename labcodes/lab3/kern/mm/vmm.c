@@ -113,14 +113,14 @@ insert_vma_struct(struct mm_struct *mm, struct vma_struct *vma) {
     list_entry_t *list = &(mm->mmap_list);
     list_entry_t *le_prev = list, *le_next;
 
-        list_entry_t *le = list;
-        while ((le = list_next(le)) != list) {
-            struct vma_struct *mmap_prev = le2vma(le, list_link);
-            if (mmap_prev->vm_start > vma->vm_start) {
-                break;
-            }
-            le_prev = le;
+    list_entry_t *le = list;
+    while ((le = list_next(le)) != list) {
+        struct vma_struct *mmap_prev = le2vma(le, list_link);
+        if (mmap_prev->vm_start > vma->vm_start) {
+            break;
         }
+        le_prev = le;
+    }
 
     le_next = list_next(le_prev);
 
@@ -346,7 +346,26 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
 
     ret = -E_NO_MEM;
 
-    pte_t *ptep=NULL;
+    struct Page *page = NULL;
+
+    pte_t *ptep = get_pte(mm->pgdir, addr, 1);
+    if (*ptep == 0) {
+        if (page = pgdir_alloc_page(mm->pgdir, addr, perm)) {
+            ret = 0;
+        }
+    }
+    else if (swap_init_ok) {
+        swap_in(mm, addr, &page);
+
+        if (0 == page_insert(mm->pgdir, page, addr, perm)) {
+            swap_map_swappable(mm, addr, page, 0);
+            ret = 0;
+        }
+    }
+    else {
+        cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+        goto failed;
+    }
     /*LAB3 EXERCISE 1: YOUR CODE
     * Maybe you want help comment, BELOW comments can help you finish the code
     *
@@ -396,7 +415,6 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
-   ret = 0;
 failed:
     return ret;
 }
