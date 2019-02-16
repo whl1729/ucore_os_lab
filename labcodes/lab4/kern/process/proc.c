@@ -90,11 +90,11 @@ alloc_proc(void) {
         
         proc->state = PROC_UNINIT; 
         proc->pid = -1;
-        proc->kstack = 0;  // along: how to set kstack?
-        proc->need_resched = 0;  // along: how to set need_resched?
-        proc->tf = 0;  // along: how to set tf?
+        proc->kstack = 0;
+        proc->need_resched = 0; 
+        proc->tf = 0;
         proc->cr3 = PADDR(boot_pgdir);
-        proc->flags = 0;  // along: how to set flags?
+        proc->flags = 0;
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
@@ -281,35 +281,31 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     }
     ret = -E_NO_MEM;
 
-    if (NULL == (proc = alloc_proc())) {
+    if ((proc = alloc_proc()) == NULL) {
         goto fork_out;
     }
 
-    if (0 != setup_kstack(proc)) {
-        kfree(proc);
-        goto fork_out;
+    proc->parent = current;
+
+    if (setup_kstack(proc) != 0) {
+        goto bad_fork_cleanup_proc;
     }
-
-    if (0 != copy_mm(clone_flags, proc)) {
-        kfree((void *)proc->kstack);
-        kfree(proc);
-        goto fork_out;
+    if (copy_mm(clone_flags, proc) != 0) {
+        goto bad_fork_cleanup_kstack;
     }
+    copy_thread(proc, stack, tf);
 
-    proc->pid = get_pid();
-
-    int esp = 0;
-    asm volatile ("movl %%esp, %0" : "=r" (esp));
-
-    copy_thread(proc, esp, tf);
-
-    list_add_before(&proc_list, &proc->list_link);
-
-    hash_proc(proc);
+    bool intr_flag;
+    local_intr_save(intr_flag);
+    {
+        proc->pid = get_pid();
+        hash_proc(proc);
+        list_add(&proc_list, &(proc->list_link));
+        nr_process ++;
+    }
+    local_intr_restore(intr_flag);
 
     wakeup_proc(proc);
-
-    nr_process++;
 
     ret = proc->pid;
 
