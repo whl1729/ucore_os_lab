@@ -86,6 +86,15 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
+        memset(proc, 0, sizeof(struct proc_struct));
+        
+        proc->state = PROC_UNINIT; 
+        proc->pid = -1;
+        proc->kstack = 0;  // along: how to set kstack?
+        proc->need_resched = 0;  // along: how to set need_resched?
+        proc->tf = 0;  // along: how to set tf?
+        proc->cr3 = PADDR(boot_pgdir);
+        proc->flags = 0;  // along: how to set flags?
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
@@ -271,6 +280,39 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     ret = -E_NO_MEM;
+
+    if (NULL == (proc = alloc_proc())) {
+        goto fork_out;
+    }
+
+    if (0 != setup_kstack(proc)) {
+        kfree(proc);
+        goto fork_out;
+    }
+
+    if (0 != copy_mm(clone_flags, proc)) {
+        kfree((void *)proc->kstack);
+        kfree(proc);
+        goto fork_out;
+    }
+
+    proc->pid = get_pid();
+
+    int esp = 0;
+    asm volatile ("movl %%esp, %0" : "=r" (esp));
+
+    copy_thread(proc, esp, tf);
+
+    list_add_before(&proc_list, &proc->list_link);
+
+    hash_proc(proc);
+
+    wakeup_proc(proc);
+
+    nr_process++;
+
+    ret = proc->pid;
+
     //LAB4:EXERCISE2 YOUR CODE
     /*
      * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.

@@ -4,3 +4,4 @@ break kern_init
 alias ly = layout
 alias ir = info registers
 alias dy = display
+ly sp
