@@ -49,7 +49,7 @@ idt_init(void) {
         SETGATE(idt[pos], 0, GD_KTEXT, __vectors[pos], DPL_KERNEL);
     }
         
-    SETGATE(idt[128], 1, GD_KTEXT, __vectors[128], DPL_USER);
+    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
 
     lidt(&idt_pd);
      /* LAB1 YOUR CODE : STEP 2 */
