@@ -221,8 +221,8 @@ trap_dispatch(struct trapframe *tf) {
         break;
     case IRQ_OFFSET + IRQ_TIMER:
         if (((++ticks) % TICK_NUM) == 0) {
-            print_ticks();
-            ticks = 0;
+            assert(current != NULL);
+            current->need_resched = 1;
         }
 #if 0
     LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages,
