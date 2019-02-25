@@ -100,6 +100,8 @@ alloc_proc(void) {
         proc->cptr = proc->optr = proc->yptr = NULL;
 
         list_init(&proc->run_link);
+        skew_heap_init(&proc->lab6_run_pool);
+        proc->lab6_priority = 1;
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
