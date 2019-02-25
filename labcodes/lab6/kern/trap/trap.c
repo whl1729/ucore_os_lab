@@ -224,10 +224,6 @@ trap_dispatch(struct trapframe *tf) {
         ticks++;
         assert(current != NULL);
         sched_class_proc_tick(current);
-
-        if (current->need_resched) {
-            schedule();
-        }
 #if 0
     LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages,
     then you can add code here. 
