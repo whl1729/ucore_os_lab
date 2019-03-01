@@ -90,6 +90,22 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
+        memset(proc, 0, sizeof(struct proc_struct));
+        
+        proc->state = PROC_UNINIT; 
+        proc->pid = -1;
+        proc->kstack = 0;
+        proc->need_resched = 0; 
+        proc->tf = NULL;
+        proc->cr3 = PADDR(boot_pgdir);
+        proc->flags = 0; 
+        proc->wait_state = 0;
+        proc->cptr = proc->optr = proc->yptr = NULL;
+
+        list_init(&proc->run_link);
+        skew_heap_init(&proc->lab6_run_pool);
+        proc->lab6_stride = 0;
+        proc->lab6_priority = 1;
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
@@ -427,6 +443,35 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     ret = -E_NO_MEM;
+
+    if ((proc = alloc_proc()) == NULL) {
+        goto fork_out;
+    }
+
+    proc->parent = current;
+    assert(current->wait_state == 0);
+
+    if (setup_kstack(proc) != 0) {
+        goto bad_fork_cleanup_proc;
+    }
+    if (copy_mm(clone_flags, proc) != 0) {
+        goto bad_fork_cleanup_kstack;
+    }
+    copy_thread(proc, stack, tf);
+
+    bool intr_flag;
+    local_intr_save(intr_flag);
+    {
+        proc->pid = get_pid();
+        set_links(proc);
+        hash_proc(proc);
+    }
+    local_intr_restore(intr_flag);
+
+    wakeup_proc(proc);
+
+    ret = proc->pid;
+
     //LAB4:EXERCISE2 YOUR CODE
     //LAB8:EXERCISE2 YOUR CODE  HINT:how to copy the fs in parent's proc_struct?
     /*
@@ -834,7 +879,8 @@ init_main(void *arg) {
     assert(nr_process == 2);
     assert(list_next(&proc_list) == &(initproc->list_link));
     assert(list_prev(&proc_list) == &(initproc->list_link));
-
+    assert(nr_free_pages_store == nr_free_pages());
+    assert(kernel_allocated_store == kallocated());
     cprintf("init check memory pass.\n");
     return 0;
 }

@@ -117,14 +117,14 @@ insert_vma_struct(struct mm_struct *mm, struct vma_struct *vma) {
     list_entry_t *list = &(mm->mmap_list);
     list_entry_t *le_prev = list, *le_next;
 
-        list_entry_t *le = list;
-        while ((le = list_next(le)) != list) {
-            struct vma_struct *mmap_prev = le2vma(le, list_link);
-            if (mmap_prev->vm_start > vma->vm_start) {
-                break;
-            }
-            le_prev = le;
+    list_entry_t *le = list;
+    while ((le = list_next(le)) != list) {
+        struct vma_struct *mmap_prev = le2vma(le, list_link);
+        if (mmap_prev->vm_start > vma->vm_start) {
+            break;
         }
+        le_prev = le;
+    }
 
     le_next = list_next(le_prev);
 
@@ -152,7 +152,7 @@ mm_destroy(struct mm_struct *mm) {
         list_del(le);
         kfree(le2vma(le, list_link));  //kfree vma        
     }
-    kfree(mm); //kfree mm
+    kfree(mm);  //kfree mm
     mm=NULL;
 }
 
@@ -434,6 +434,36 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     ret = -E_NO_MEM;
 
     pte_t *ptep=NULL;
+
+    if ((ptep = get_pte(mm->pgdir, addr, 1)) == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    
+    if (*ptep == 0) {
+        if (NULL == pgdir_alloc_page(mm->pgdir, addr, perm)) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }
+    else if (swap_init_ok) {
+        struct Page *page = NULL;
+        if ((ret = swap_in(mm, addr, &page)) != 0) {
+            cprintf("swap_in in do_pgfault failed. ret = %d\n", ret);
+            goto failed;
+        }
+
+        if ((ret = page_insert(mm->pgdir, page, addr, perm)) != 0) {
+            cprintf("page_insert in do_pgfault failed\n");
+            goto failed;
+        }
+
+        swap_map_swappable(mm, addr, page, 0);
+    }
+    else {
+        cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+        goto failed;
+    }
     /*LAB3 EXERCISE 1: YOUR CODE
     * Maybe you want help comment, BELOW comments can help you finish the code
     *

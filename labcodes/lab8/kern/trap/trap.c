@@ -42,6 +42,17 @@ static struct pseudodesc idt_pd = {
 /* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
 void
 idt_init(void) {
+    extern uintptr_t __vectors[];
+    uint32_t pos;
+
+    /* along: how to set istrap and dpl? */
+    for (pos = 0; pos < 256; pos++) {
+        SETGATE(idt[pos], 0, GD_KTEXT, __vectors[pos], DPL_KERNEL);
+    }
+        
+    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
+
+    lidt(&idt_pd);
      /* LAB1 YOUR CODE : STEP 2 */
      /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
       *     All ISR's entry addrs are stored in __vectors. where is uintptr_t __vectors[] ?
@@ -210,6 +221,9 @@ trap_dispatch(struct trapframe *tf) {
         syscall();
         break;
     case IRQ_OFFSET + IRQ_TIMER:
+        ticks++;
+        assert(current != NULL);
+        run_timer_list();
 #if 0
     LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages,
     then you can add code here. 
