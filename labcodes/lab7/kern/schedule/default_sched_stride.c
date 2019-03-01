@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <default_sched.h>
 
-#define USE_SKEW_HEAP 1
+#define USE_SKEW_HEAP 0
 
 /* You should define the BigStride constant here*/
 /* LAB6: YOUR CODE */
