@@ -123,7 +123,7 @@ fd_array_dup(struct file *to, struct file *from) {
 }
 
 // fd2file - use fd as index of fd_array, return the array item (file)
-static inline int
+inline int
 fd2file(int fd, struct file **file_store) {
     if (testfd(fd)) {
         struct file *file = get_fd_array() + fd;

@@ -28,6 +28,7 @@ void fd_array_open(struct file *file);
 void fd_array_close(struct file *file);
 void fd_array_dup(struct file *to, struct file *from);
 bool file_testfd(int fd, bool readable, bool writable);
+int fd2file(int fd, struct file **file_store);
 
 int file_open(char *path, uint32_t open_flags);
 int file_close(int fd);
